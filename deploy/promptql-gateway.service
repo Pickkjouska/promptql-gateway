@@ -1,0 +1,29 @@
+[Unit]
+Description=PromptQL Reverse Gateway
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=promptql
+Group=promptql
+WorkingDirectory=/opt/promptql-gateway
+Environment="APP_HOST=0.0.0.0"
+Environment="APP_PORT=8080"
+Environment="APP_DATA_DIR=/opt/promptql-gateway/data"
+Environment="FIVESIM_MAX_PRICE=0.10"
+# 密钥建议用 EnvironmentFile，别写进 unit（会被 systemctl show 看到）
+EnvironmentFile=-/etc/promptql-gateway.env
+ExecStart=/opt/promptql-gateway/.venv/bin/python -m uvicorn app.main:app \
+          --host ${APP_HOST} --port ${APP_PORT} --log-level info
+Restart=always
+RestartSec=5
+# 加固
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/opt/promptql-gateway/data
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,45 @@
+MIT License
+
+Copyright (c) 2026 PromptQL Gateway contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+## Additional Notice / 附加声明
+
+This software is intended **solely for authorized security research,
+automated testing, and educational purposes**.
+
+The authors provide **no accounts, credentials, keys, or access** to any
+third-party service. Users are entirely responsible for ensuring their use
+complies with all applicable laws and the terms of service of any service
+they interact with.
+
+The authors accept **no liability** for any consequences arising from the
+use of this software, including but not limited to account suspension,
+service termination, or legal action.
+
+本软件仅供**授权范围内的安全研究、自动化测试与教学用途**。
+
+作者**不提供任何账号、凭据、密钥或访问权限**。使用者须自行确保其行为
+符合所有适用法律及所涉服务的服务条款。
+
+因使用本软件产生的任何后果（包括但不限于账号封禁、服务终止、法律风险），
+作者**不承担任何责任**。

@@ -1,0 +1,24 @@
+services:
+  gateway:
+    build: .
+    image: promptql-gateway:1.0.0
+    container_name: promptql-gateway
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/data
+    environment:
+      # ---- 上游 ----
+      PQL_PROJECT_ID: "4c2a0298-30c6-4b30-84d8-8440f5b356ee"
+      # ---- 5sim ----
+      FIVESIM_MAX_PRICE: "0.10"        # 🔴 接码单价硬闸（美元）
+      FIVESIM_COUNTRY: "england"
+      FIVESIM_PRODUCT: "other"
+      # ---- 服务 ----
+      APP_PORT: "8080"
+      APP_DATA_DIR: "/data"
+      # APP_MASTER_KEY: ""             # 建议固定，否则删库重来会解不开旧凭据
+      # 密钥也可以走文件挂载，更安全:
+      #   ./data/fivesim.key  ->  /data/fivesim.key   （已随 volume 挂入）
+    # 反向代理场景下由外部 nginx/caddy 终止 TLS

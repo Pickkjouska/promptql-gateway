@@ -1,0 +1,613 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PromptQL 反代控制台</title>
+<style>
+  :root{
+    --bg:#f6f8fa; --panel:#ffffff; --line:#d0d7de; --fg:#1f2328; --dim:#656d76;
+    --ok:#1a7f37; --warn:#9a6700; --err:#cf222e; --acc:#0969da; --purple:#8250df;
+    --hover:#f3f4f6; --code:#f6f8fa;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0d1117; --panel:#161b22; --line:#30363d; --fg:#e6edf3; --dim:#8b949e;
+      --ok:#3fb950; --warn:#d29922; --err:#f85149; --acc:#58a6ff; --purple:#bc8cff;
+      --hover:#1c2128; --code:#0d1117;
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+       font:13px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  header{padding:14px 20px;border-bottom:1px solid var(--line);display:flex;
+          align-items:center;gap:14px;position:sticky;top:0;background:var(--bg);z-index:9}
+  h1{font-size:15px;margin:0;font-weight:600;letter-spacing:.5px}
+  .badge{padding:2px 8px;border-radius:10px;font-size:11px;border:1px solid var(--line)}
+  .tabs{display:flex;gap:2px;padding:0 20px;border-bottom:1px solid var(--line);
+         position:sticky;top:53px;background:var(--bg);z-index:8;flex-wrap:wrap}
+  .tab{padding:9px 15px;cursor:pointer;color:var(--dim);border-bottom:2px solid transparent}
+  .tab.on{color:var(--fg);border-bottom-color:var(--acc)}
+  main{padding:18px 20px 60px;max-width:1500px}
+  .pane{display:none} .pane.on{display:block}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:8px;
+         padding:14px 16px;margin-bottom:14px}
+  .card h2{font-size:13px;margin:0 0 10px;font-weight:600;color:var(--dim);
+            text-transform:uppercase;letter-spacing:.6px}
+  .grid{display:grid;gap:12px}
+  .g4{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+  .g2{grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
+  .stat{background:var(--code);border:1px solid var(--line);border-radius:6px;padding:10px 12px}
+  .stat .k{color:var(--dim);font-size:11px;text-transform:uppercase}
+  .stat .v{font-size:20px;font-weight:600;margin-top:3px}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th,td{padding:6px 9px;text-align:left;border-bottom:1px solid var(--line);
+         white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:340px}
+  th{color:var(--dim);font-weight:500;position:sticky;top:0;background:var(--panel)}
+  tr:hover td{background:var(--hover)}
+  .ok{color:var(--ok);font-weight:500} .warn{color:var(--warn)} .err{color:var(--err);font-weight:500}
+  .acc{color:var(--acc)} .purple{color:var(--purple)}
+  textarea,input,select{background:var(--code);border:1px solid var(--line);color:var(--fg);
+     border-radius:6px;padding:8px 10px;font-family:inherit;font-size:12px;width:100%}
+  textarea{min-height:110px;resize:vertical}
+  button{background:var(--panel);border:1px solid var(--line);color:var(--fg);
+     border-radius:6px;padding:7px 14px;cursor:pointer;font-family:inherit;font-size:12px}
+  button:hover{background:var(--hover);border-color:var(--dim)}
+  button.pri{background:var(--acc);border-color:var(--acc)}
+  button.pri:hover{filter:brightness(1.1)}
+  button.danger{color:var(--err);border-color:var(--err)}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+  .scroll{max-height:430px;overflow:auto}
+  code{background:var(--code);padding:2px 5px;border-radius:4px;font-size:11px}
+  .kv{display:flex;gap:8px;font-size:12px;padding:2px 0}
+  .kv b{color:var(--dim);font-weight:400;min-width:88px}
+  .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px}
+  .pill{padding:1px 7px;border-radius:9px;font-size:11px;border:1px solid var(--line)}
+  pre{background:var(--code);border:1px solid var(--line);border-radius:6px;padding:10px;
+       overflow:auto;font-size:11px;max-height:300px}
+  .hint{color:var(--dim);font-size:11px}
+</style>
+</head>
+<body>
+<header>
+  <h1>PromptQL 反代控制台</h1>
+  <span class="badge" id="hz">连接中…</span>
+  <span class="badge" id="fscap">接码闸: —</span>
+  <span class="badge" id="herobal">hero: —</span>
+  <span style="flex:1"></span>
+  <span class="hint" id="ts"></span>
+</header>
+
+<div class="tabs">
+  <div class="tab on" data-p="pool">号池状态</div>
+  <div class="tab" data-p="accounts">账号池</div>
+  <div class="tab" data-p="register">注册</div>
+  <div class="tab" data-p="keys">下游 API</div>
+  <div class="tab" data-p="usage">Token 用量</div>
+  <div class="tab" data-p="events">日志</div>
+</div>
+
+<main>
+  <!-- ============ 号池 ============ -->
+  <section class="pane on" id="p-pool">
+    <div class="grid g4" id="pool-stats"></div>
+    <div class="card" style="margin-top:14px">
+      <h2>账号池</h2>
+      <div class="scroll"><table id="pool-tbl">
+        <thead><tr><th>邮箱</th><th>状态</th><th>Cookie</th><th>计划</th><th>免费额度(OLU)</th><th>≈美元</th>
+          <th>手机</th><th>失败</th><th>冷却</th><th>操作</th></tr></thead>
+        <tbody></tbody></table></div>
+    </div>
+  </section>
+
+  <!-- ============ 账号/导入 ============ -->
+  <section class="pane" id="p-accounts">
+    <div class="card">
+      <h2>账号池</h2>
+      <div class="hint" style="margin-bottom:8px">
+        这里只展示已注册/已加入的账号。新增账号请到「注册」页导入邮箱凭据。
+      </div>
+      <div class="row">
+        <label class="hint"><input type="checkbox" id="del-purge-usage" checked style="width:auto"> 同时删除该账号的用量记录</label>
+        <label class="hint"><input type="checkbox" id="del-purge-profile" style="width:auto"> 同时删除指纹档案</label>
+        <button class="danger" onclick="delSelected()">删除选中</button>
+        <span class="hint" id="acc-del-res"></span>
+      </div>
+      <div class="scroll"><table id="acc-tbl">
+        <thead><tr><th style="width:28px"><input type="checkbox" id="del-all" onclick="toggleAll(this)" style="width:auto"></th>
+          <th>ID</th><th>邮箱</th><th>状态</th><th>Cookie</th><th>PQL User</th>
+          <th>计划</th><th>免费额度(OLU)</th><th>≈美元</th><th>手机</th><th>操作</th></tr></thead>
+        <tbody></tbody></table></div>
+    </div>
+  </section>
+
+  <!-- ============ 注册 ============ -->
+  <section class="pane" id="p-register">
+    <div class="card">
+      <h2>注册账号</h2>
+      <div class="hint" style="margin-bottom:8px">
+        走完整链路：<b>outlook 邮箱 OTP 登录</b>（必须贴凭据）→ 手机验证（如上游要求，自动接码，
+        单价硬闸 <span id="cap2" class="acc">$0.10</span>）→ 落盘 cookie。
+        <b class="warn">命中银行卡/付费信号会立即熔断并上报，不盲目重试。</b>
+      </div>
+      <div class="card" style="background:var(--code);padding:10px 12px;margin-bottom:10px">
+        <div class="kv"><b>凭据格式</b>
+          <code>email----password----refresh_token----client_id</code></div>
+        <div class="kv"><b>示例</b>
+          <span class="hint">user@outlook.com----MyPass123----M.C000_EXAMPLE.0.U.Sample.xXxXxXxXxXx----9e5f94bc-e8a4-4e73-b8be-63364c29d753</span></div>
+        <div class="kv"><b>说明</b>
+          <span class="hint">每行一条，可直接粘贴或上传 .txt 文件；password 段可用占位符 <code>x</code> 留空</span></div>
+      </div>
+      <textarea id="reg-text" placeholder="user@outlook.com----MyPass123----M.C000_EXAMPLE.0.U.Sample.xXxXxXxXxXx----9e5f94bc-e8a4-4e73-b8be-63364c29d753"></textarea>
+      <div class="row" style="margin-top:10px">
+        <button class="pri" onclick="doRegister()">开始注册</button>
+        <label class="hint"><input type="checkbox" id="reg-phone" checked style="width:auto"> 允许自动接码</label>
+        <span class="hint" id="reg-res"></span>
+      </div>
+      <div id="reg-progress"></div>
+    </div>
+    <div class="card">
+      <h2>接码配置</h2>
+      <div class="hint" style="margin-bottom:10px">
+        🔐 密钥只写到本地 <code>data/&lt;provider&gt;.key</code>（权限 0600），
+        <code>data/</code> 已在 <code>.gitignore</code> —— <b class="ok">永不进版本库</b>。
+        网页只回传掩码，不显示明文。
+      </div>
+      <div class="grid g2">
+        <div>
+          <div class="row">
+            <span class="hint" style="min-width:70px">接码平台</span>
+            <label class="hint"><input type="radio" name="smsprov" value="hero" style="width:auto"> hero-sms</label>
+            <label class="hint"><input type="radio" name="smsprov" value="5sim" style="width:auto"> 5sim</label>
+          </div>
+          <div class="row">
+            <span class="hint" style="min-width:70px">API 密钥</span>
+            <input id="sms-key" type="password" placeholder="粘贴密钥（保存后只显示掩码）" style="flex:1">
+          </div>
+          <div class="row">
+            <button class="pri" onclick="saveSmsCfg()">保存</button>
+            <button onclick="testSms()">测试连通</button>
+            <span class="hint" id="sms-res"></span>
+          </div>
+          <div id="sms-status" class="hint"></div>
+        </div>
+        <div>
+          <div class="kv"><b>价格硬闸</b><span id="sms-cap">—</span></div>
+          <div class="kv"><b>换号上限</b><span id="sms-tries">—</span></div>
+          <div class="kv"><b>总预算</b><span id="sms-budget">—</span></div>
+          <div class="kv"><b>服务类型</b><span class="acc">other（通用验证码）</span></div>
+          <div class="kv"><b>当前余额</b><span id="sms-bal" class="ok">—</span></div>
+        </div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button onclick="loadSmsPrices()">刷新档位价格</button>
+        <span class="hint" id="sms-price-info"></span>
+      </div>
+      <div class="scroll" style="max-height:300px"><table id="sms-tbl">
+        <thead><tr><th>地区</th><th>运营商</th><th>服务</th><th>单价</th><th>库存</th><th>可下单</th></tr></thead>
+        <tbody></tbody></table></div>
+    </div>
+  </section>
+
+  <!-- ============ 下游 API ============ -->
+  <section class="pane" id="p-keys">
+    <div class="card">
+      <h2>创建下游 API Key</h2>
+      <div class="row">
+        <input id="key-label" placeholder="备注名，如 my-app" style="width:280px">
+        <button class="pri" onclick="newKey()">创建</button>
+      </div>
+      <div id="key-new"></div>
+    </div>
+    <div class="card">
+      <h2>已有 Key</h2>
+      <div class="scroll"><table id="key-tbl">
+        <thead><tr><th>Key</th><th>备注</th><th>状态</th><th>创建时间</th><th></th></tr></thead>
+        <tbody></tbody></table></div>
+    </div>
+    <div class="card">
+      <h2>可用模型 <span class="hint" id="model-src"></span>
+        <button style="float:right;padding:3px 10px" onclick="refreshModels()">刷新</button></h2>
+      <div class="scroll" style="max-height:320px"><table id="model-tbl2">
+        <thead><tr><th>模型名（调用时填这里）</th><th>llm_config_id</th></tr></thead>
+        <tbody></tbody></table></div>
+      <div class="hint" style="margin-top:6px">
+        模型**按账号所属项目**解析；调用时 <code>"model"</code> 填左列任意一个即可，
+        网关会自动映射到该项目里的 id。
+      </div>
+    </div>
+    <div class="card">
+      <h2>接入点</h2>
+      <pre id="endpoints"></pre>
+    </div>
+  </section>
+
+  <!-- ============ 用量 ============ -->
+  <section class="pane" id="p-usage">
+    <div class="grid g4" id="usage-stats"></div>
+    <div class="card" style="margin-top:14px">
+      <h2>按模型汇总</h2>
+      <div class="scroll"><table id="model-tbl">
+        <thead><tr><th>模型</th><th>次数</th><th>输入</th><th>输出</th></tr></thead>
+        <tbody></tbody></table></div>
+    </div>
+    <div class="card">
+      <h2>按下游 Key 汇总</h2>
+      <div class="scroll"><table id="keyuse-tbl">
+        <thead><tr><th>下游 Key</th><th>次数</th><th>输入</th><th>输出</th><th>平均首字</th><th>平均用时</th></tr></thead>
+        <tbody></tbody></table></div>
+    </div>
+    <div class="card">
+      <h2>调用记录</h2>
+      <div class="scroll"><table id="use-tbl">
+        <thead><tr><th>时间</th><th>下游Key</th><th>协议</th><th>模型</th><th>账号</th>
+          <th>输入</th><th>输出</th><th>缓存</th><th>首字</th><th>总用时</th><th>结果</th></tr></thead>
+        <tbody></tbody></table></div>
+    </div>
+  </section>
+
+  <!-- ============ 日志 ============ -->
+  <section class="pane" id="p-events">
+    <div class="card">
+      <h2>事件日志</h2>
+      <div class="scroll" style="max-height:640px"><table id="ev-tbl">
+        <thead><tr><th>时间</th><th>级别</th><th>范围</th><th>账号</th><th>消息</th></tr></thead>
+        <tbody></tbody></table></div>
+    </div>
+  </section>
+</main>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s??'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const ts2s = t => t ? new Date(t*1000).toLocaleTimeString('zh-CN',{hour12:false}) : '—';
+const ts2d = t => t ? new Date(t*1000).toLocaleString('zh-CN',{hour12:false}) : '—';
+const nf = n => (n??0).toLocaleString();
+
+document.querySelectorAll('.tab').forEach(t => t.onclick = () => {
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));
+  document.querySelectorAll('.pane').forEach(x=>x.classList.remove('on'));
+  t.classList.add('on'); $('#p-'+t.dataset.p).classList.add('on');
+});
+
+let LAST = null;
+
+async function refresh(){
+  try{
+    const r = await fetch('/api/state');
+    const d = await r.json();
+    LAST = d;
+    $('#hz').textContent = '服务正常'; $('#hz').className='badge ok';
+    $('#ts').textContent = '更新于 ' + new Date().toLocaleTimeString('zh-CN',{hour12:false});
+    $('#fscap').textContent = '接码闸: $' + (d.fivesim_cap ?? 0.1).toFixed(2);
+    $('#cap2').textContent = '$' + (d.fivesim_cap ?? 0.1).toFixed(2);
+    renderPool(d); renderAccounts(d); renderKeys(d); renderUsage(d);
+    renderEvents(d); renderJobs(d);
+  }catch(e){
+    $('#hz').textContent = '服务离线'; $('#hz').className='badge err';
+  }
+}
+
+function renderPool(d){
+  const p = d.pool||[];
+  const act = p.filter(x=>x.status==='active').length;
+  const cool = p.filter(x=>x.cooldown_s>0).length;
+  const olu = p.reduce((a,x)=>a+(x.olu_total||0),0);
+  const used = p.reduce((a,x)=>a+(x.olu_used||0),0);
+  $('#pool-stats').innerHTML = [
+    ['账号总数', p.length, ''], ['健康(active)', act, 'ok'],
+    ['冷却中', cool, cool?'warn':''], ['免费额度合计', olu.toFixed(1), 'acc'],
+    ['已用额度', used.toFixed(1), ''], ['可用余额', (olu-used).toFixed(1), 'ok'],
+  ].map(([k,v,c])=>`<div class="stat"><div class="k">${k}</div><div class="v ${c}">${v}</div></div>`).join('');
+
+  $('#pool-tbl tbody').innerHTML = p.map(x=>{
+    const col = x.status==='active'?'ok':(x.status==='blocked_card'?'err':'warn');
+    const plan = x.olu_plan || '—';
+    const planCls = plan==='OLU_BASED' ? 'ok' : (plan==='USD_BASED' ? 'warn' : '');
+    const usd = x.remaining_usd!=null ? '$'+x.remaining_usd.toFixed(2) : '—';
+    const oluTxt = x.remaining!=null
+        ? x.remaining.toFixed(2)+' / '+(x.granted!=null?x.granted.toFixed(0):'?')
+        : (x.olu_used!=null?x.olu_used.toFixed(2)+' / '+(x.olu_total||0).toFixed(0):'—');
+    return `<tr>
+      <td>${esc(x.email)}</td>
+      <td class="${col}"><span class="dot" style="background:currentColor"></span>${esc(x.status||'')}</td>
+      <td>${x.has_cookie?'<span class="ok">有</span>':'<span class="err">无</span>'}</td>
+      <td class="${planCls}">${esc(plan)}</td>
+      <td>${oluTxt}</td>
+      <td class="${x.remaining_usd?'ok':'err'}">${usd}</td>
+      <td>${esc(x.phone||'—')}</td>
+      <td class="${x.fails?'err':''}">${x.fails||0}</td>
+      <td>${x.cooldown_s?x.cooldown_s+'s':'—'}</td>
+      <td><button class="danger" style="padding:2px 8px" onclick="delOne('${esc(x.email)}')">删除</button></td></tr>`;
+  }).join('') || '<tr><td colspan="10" class="hint">暂无账号</td></tr>';
+}
+
+function renderAccounts(d){
+  const a = d.pool||[];
+  $('#acc-tbl tbody').innerHTML = a.map((x,i)=>{
+    const plan = x.olu_plan || '—';
+    const planCls = plan==='OLU_BASED' ? 'ok' : (plan==='USD_BASED' ? 'warn' : '');
+    const usd = x.remaining_usd!=null ? '$'+x.remaining_usd.toFixed(2) : '—';
+    const olu = x.remaining!=null
+        ? x.remaining.toFixed(2)+' / '+(x.granted!=null?x.granted.toFixed(0):'?')
+        : (x.olu_used!=null?x.olu_used.toFixed(2)+' / '+(x.olu_total||0).toFixed(0):'—');
+    return `<tr>
+    <td><input type="checkbox" class="del-ck" value="${esc(x.email)}" style="width:auto"></td>
+    <td>${i+1}</td><td>${esc(x.email)}</td>
+    <td>${esc(x.status||'')}</td>
+    <td>${x.has_cookie?'<span class="ok">有</span>':'<span class="err">无</span>'}</td>
+    <td class="hint">${esc((x.pql_user_id||'—').slice(0,18))}</td>
+    <td class="${planCls}">${esc(plan)}</td>
+    <td>${olu}</td>
+    <td class="${x.remaining_usd?'ok':'err'}">${usd}</td>
+    <td>${esc(x.phone||'—')}</td>
+    <td><button class="danger" style="padding:2px 8px" onclick="delOne('${esc(x.email)}')">删除</button></td>
+    </tr>`;}).join('')
+    || '<tr><td colspan="8" class="hint">暂无账号，去「账号 / 导入」添加</td></tr>';
+}
+
+function renderKeys(d){
+  $('#key-tbl tbody').innerHTML = (d.apikeys||[]).map(k=>`<tr>
+    <td><code>${esc(k.key.slice(0,26))}…</code></td><td>${esc(k.label||'')}</td>
+    <td>${k.enabled?'<span class="ok">启用</span>':'<span class="err">已吊销</span>'}</td>
+    <td class="hint">${ts2d(k.created_at)}</td>
+    <td>${k.enabled?`<button class="danger" onclick="revKey('${esc(k.key)}')">吊销</button>`:''}</td>
+    </tr>`).join('') || '<tr><td colspan="5" class="hint">还没有下游 Key</td></tr>';
+  const _modelList = Object.keys(d.models||{}).sort().map(x => '  ' + x);
+  const _mc = d.model_cache || {};
+  $('#model-src').textContent = _mc.busy
+      ? '（后台刷新中…）'
+      : (_mc.ts ? '· 更新于 ' + new Date(_mc.ts*1000).toLocaleTimeString('zh-CN',{hour12:false})
+                : '· 尚未加载');
+  $('#model-tbl2 tbody').innerHTML = Object.keys(d.models||{}).sort().map(k =>
+      `<tr><td class="purple">${esc(k)}</td><td class="hint">${esc(d.models[k])}</td></tr>`
+    ).join('') || '<tr><td colspan="2" class="hint">暂无模型（点右上角刷新）</td></tr>';
+  $('#endpoints').textContent =
+`POST /v1/chat/completions      # OpenAI Chat Completions
+POST /v1/responses             # OpenAI Responses API
+POST /v1/messages              # Anthropic Messages API
+
+鉴权:  Authorization: Bearer <你的下游Key>   或   X-Api-Key: <Key>
+
+可选模型（按项目实时解析，共 ${_modelList.length} 个）:
+${_modelList.join(String.fromCharCode(10))}
+默认模型: ${d.default_model||''}
+
+curl 示例:
+curl -s http://<主机>:8080/v1/chat/completions \\
+  -H "Authorization: Bearer <Key>" -H "Content-Type: application/json" \\
+  -d '{"model":"claude-fable-5-1","messages":[{"role":"user","content":"hi"}]}'`;
+}
+
+function renderUsage(d){
+  const u = d.usage||{}, t = u.total||{};
+  $('#usage-stats').innerHTML = [
+    ['总调用', nf(t.n), ''], ['成功', nf(t.okn), 'ok'],
+    ['输入 tokens', nf(t.inp), 'acc'], ['输出 tokens', nf(t.outp), 'purple'],
+    ['缓存命中 tokens', nf(t.cache), ''],
+  ].map(([k,v,c])=>`<div class="stat"><div class="k">${k}</div><div class="v ${c}">${v}</div></div>`).join('');
+  $('#model-tbl tbody').innerHTML = (u.by_model||[]).map(m=>`<tr>
+    <td class="purple">${esc(m.model||'—')}</td><td>${nf(m.n)}</td>
+    <td>${nf(m.inp)}</td><td>${nf(m.outp)}</td></tr>`).join('')
+    || '<tr><td colspan="4" class="hint">暂无调用</td></tr>';
+  $('#keyuse-tbl tbody').innerHTML = (u.by_key||[]).map(k=>`<tr>
+    <td>${esc(k.k||'—')}</td><td>${nf(k.n)}</td>
+    <td>${nf(k.inp)}</td><td>${nf(k.outp)}</td>
+    <td class="acc">${k.avg_ttft?Math.round(k.avg_ttft)+'ms':'—'}</td>
+    <td>${Math.round(k.avg_ms||0)}ms</td></tr>`).join('')
+    || '<tr><td colspan="6" class="hint">暂无记录</td></tr>';
+  $('#use-tbl tbody').innerHTML = (u.recent||[]).map(x=>`<tr>
+    <td class="hint">${ts2s(x.ts)}</td>
+    <td>${esc(x.apikey_label||'—')}</td>
+    <td>${esc(x.protocol||'')}</td>
+    <td class="purple">${esc(x.model||'')}</td>
+    <td class="hint">${esc((x.account_email||'').slice(0,24)||'—')}</td>
+    <td>${nf(x.input_tokens)}</td><td>${nf(x.output_tokens)}</td>
+    <td class="hint">${nf(x.cached_tokens)}</td>
+    <td class="acc">${x.ttft_ms!=null?nf(x.ttft_ms)+'ms':'—'}</td>
+    <td>${nf(x.latency_ms)}ms</td>
+    <td>${x.ok?'<span class="ok">OK</span>':'<span class="err">'+esc((x.err||'fail').slice(0,40))+'</span>'}</td>
+    </tr>`).join('') || '<tr><td colspan="11" class="hint">暂无记录</td></tr>';
+}
+
+function renderEvents(d){
+  $('#ev-tbl tbody').innerHTML = (d.events||[]).map(e=>{
+    const c = e.level==='error'?'err':(e.level==='warn'?'warn':'');
+    return `<tr><td class="hint">${ts2d(e.ts)}</td><td class="${c}">${esc(e.level)}</td>
+      <td>${esc(e.scope)}</td><td class="hint">${esc(e.account||'')}</td>
+      <td>${esc(e.msg||'')}</td></tr>`;
+  }).join('') || '<tr><td colspan="5" class="hint">暂无日志</td></tr>';
+}
+
+function renderJobs(d){
+  const js = (d.jobs||[]).slice().reverse();
+  if(!js.length){ $('#reg-progress').innerHTML=''; return; }
+  $('#reg-progress').innerHTML = js.map(j=>{
+    const cls = j.status==='finished'?'ok':(j.status==='running'?'warn':'');
+    const rows = (j.results||[]).map(r=>`<tr><td>${esc(r.email)}</td>
+      <td class="${r.ok?'ok':'err'}">${r.ok?'成功':'失败'}</td>
+      <td>${esc(r.stage||'')}</td><td>${r.phone_verified?'✅':'—'}</td>
+      <td class="hint">${esc(r.error||'')}</td></tr>`).join('');
+    return `<div class="card"><div class="row"><b>${esc(j.id)}</b>
+      <span class="pill ${cls}">${esc(j.status)}</span>
+      <span class="hint">${esc(j.progress||'')} 当前: ${esc(j.current||'—')}</span></div>
+      <table><thead><tr><th>邮箱</th><th>结果</th><th>阶段</th><th>手机验证</th><th>错误</th></tr></thead>
+      <tbody>${rows}</tbody></table></div>`;
+  }).join('');
+}
+
+// ---------- 动作 ----------
+function toggleAll(cb){
+  document.querySelectorAll('.del-ck').forEach(c => c.checked = cb.checked);
+}
+
+async function doDelete(emails){
+  if(!emails.length) return;
+  const usage = $('#del-purge-usage').checked;
+  const prof = $('#del-purge-profile').checked;
+  const NL = String.fromCharCode(10);
+  const warn = "确认删除 " + emails.length + " 个账号？" + NL + NL +
+    emails.slice(0,8).join(NL) + (emails.length>8 ? (NL+"… 共 "+emails.length+" 个") : "") +
+    NL + NL + "⚠️ 不可逆：账号的 cookie / 密钥会一并销毁。" +
+    (usage ? NL+"• 同时删除用量记录" : NL+"• 保留用量记录") +
+    (prof ? NL+"• 同时删除指纹档案" : "");
+  if(!confirm(warn)) return;
+  $('#acc-del-res').textContent = '删除中…';
+  const r = await (await fetch('/api/accounts/delete', {method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({emails, purge_usage:usage, purge_profile:prof})})).json();
+  const names = (r.results||[]).filter(x=>x.ok).map(x=>x.email);
+  $('#acc-del-res').textContent = `已删 ${r.deleted}/${emails.length}` +
+      (names.length ? ': ' + names.slice(0,3).join(', ') + (names.length>3?'…':'') : '');
+  refresh();
+}
+
+function delOne(email){ doDelete([email]); }
+
+function delSelected(){
+  const emails = Array.from(document.querySelectorAll('.del-ck'))
+      .filter(c => c.checked).map(c => c.value);
+  if(!emails.length) return alert('先勾选要删除的账号');
+  doDelete(emails);
+}
+
+async function doImport(){
+  const text = $('#imp-text').value;
+  const f = $('#imp-file').files[0];
+  $('#imp-res').textContent = '处理中…';
+  let res;
+  if(f){
+    const fd = new FormData(); fd.append('file', f);
+    res = await (await fetch('/api/accounts/import', {method:'POST', body:fd})).json();
+  }else{
+    res = await (await fetch('/api/accounts/import', {method:'POST',
+      headers:{'Content-Type':'application/json'}, body:JSON.stringify({text})})).json();
+  }
+  $('#imp-res').textContent = `导入 ${res.imported} 条，失败 ${(res.failed||[]).length} 条`;
+  if(res.failed?.length) console.warn('导入失败:', res.failed);
+  refresh();
+}
+
+async function doRegister(){
+  const lines = $('#reg-text').value.split('\\n').map(s=>s.trim()).filter(Boolean);
+  if(!lines.length) return alert('请填写邮箱');
+  const emails = lines.filter(l=>!l.includes('----'));
+  const creds  = lines.filter(l=>l.includes('----'));
+  if(creds.length){
+    await fetch('/api/accounts/import', {method:'POST',
+      headers:{'Content-Type':'application/json'}, body:JSON.stringify({text:creds.join('\\n')})});
+  }
+  const r = await (await fetch('/api/register', {method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({emails})})).json();
+  $('#reg-res').textContent = `任务 ${r.job_id} 已启动（${r.count} 个）`;
+  refresh();
+}
+
+async function loadSmsCfg(){
+  try{
+    const d = await (await fetch('/api/sms/config')).json();
+    document.querySelectorAll('input[name=smsprov]').forEach(r => r.checked = (r.value === d.provider));
+    $('#sms-cap').textContent    = '$' + (d.max_price ?? 0.1).toFixed(2);
+    $('#sms-tries').textContent  = (d.max_tries ?? '—') + ' 次（每次先退单）';
+    $('#sms-budget').textContent = '$' + (d.total_budget ?? '—');
+    const hk = d.hero_configured    ? '已配置' : '未配置';
+    const fk = d.fivesim_configured ? '已配置' : '未配置';
+    $('#sms-status').innerHTML =
+      '<div class="kv"><b>hero 密钥</b><span class="'+(d.hero_configured?'ok':'warn')+'">'+hk+'</span></div>' +
+      '<div class="kv"><b>5sim 密钥</b><span class="'+(d.fivesim_configured?'ok':'warn')+'">'+fk+'</span></div>';
+  }catch(e){ $('#sms-res').textContent = '读取配置失败: ' + e; }
+}
+
+async function saveSmsCfg(){
+  const prov = (document.querySelector('input[name=smsprov]:checked')||{}).value || 'hero';
+  const key = $('#sms-key').value.trim();
+  $('#sms-res').textContent = '保存中…';
+  const r = await (await fetch('/api/sms/config', {method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({provider: prov, key})})).json();
+  $('#sms-res').textContent = r.ok
+      ? ('已保存 (' + prov + ')，密钥仅存本地')
+      : ('失败: ' + (r.detail || JSON.stringify(r)));
+  $('#sms-key').value = '';
+  loadSmsCfg(); refresh();
+}
+
+async function testSms(){
+  $('#sms-res').textContent = '测试中…';
+  const r = await (await fetch('/api/sms/test', {method:'POST',
+    headers:{'Content-Type':'application/json'}, body:'{}'})).json();
+  $('#sms-res').textContent = r.ok
+      ? (r.provider + ' 连通，余额 $' + (r.balance ?? '?'))
+      : ('失败: ' + r.error);
+  if (r.ok) $('#sms-bal').textContent = '$' + r.balance;
+}
+
+async function loadSmsPrices(){
+  $('#sms-price-info').textContent = '查询中…';
+  const r = await (await fetch('/api/sms/prices')).json();
+  if(!r.ok){ $('#sms-price-info').textContent = '错误: ' + r.error; return; }
+  $('#sms-price-info').textContent =
+      r.provider + ' · ' + r.under_cap + '/' + r.total + ' 档在闸内 (≤$' + r.cap + ')';
+  $('#sms-tbl tbody').innerHTML = r.rows.map(x=>`<tr>
+    <td>${esc(x.country)}</td><td>${esc(x.operator)}</td><td>${esc(x.product||'other')}</td>
+    <td class="${x.under_cap?'ok':'err'}">$${x.cost}</td><td>${nf(x.count)}</td>
+    <td>${x.under_cap&&x.count>0?'<span class="ok">✔</span>':'<span class="err">✘</span>'}</td>
+    </tr>`).join('') || '<tr><td colspan="6" class="hint">无数据</td></tr>';
+}
+
+async function loadPrices(){
+  $('#fs-info').textContent = '查询中…';
+  const r = await (await fetch('/api/sms/prices')).json();
+  if(!r.ok){ $('#fs-info').textContent = '错误: '+r.error; return; }
+  $('#fs-info').textContent = `${r.under_cap}/${r.total} 档在闸内 (≤$${r.cap})`;
+  $('#fs-tbl tbody').innerHTML = r.rows.map(x=>`<tr>
+    <td>${esc(x.country)}</td><td>${esc(x.operator)}</td><td>${esc(x.product)}</td>
+    <td class="${x.under_cap?'ok':'err'}">$${x.cost}</td><td>${nf(x.count)}</td>
+    <td>${x.under_cap&&x.count>0?'<span class="ok">✔</span>':'<span class="err">✘</span>'}</td>
+    </tr>`).join('');
+}
+
+async function refreshModels(){
+  $('#model-src').textContent = '（刷新中…）';
+  try{
+    await fetch('/api/models?refresh=1');
+    await refresh();
+  }catch(e){ $('#model-src').textContent = '刷新失败: ' + e; }
+}
+
+async function newKey(){
+  const r = await (await fetch('/api/apikeys', {method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({label:$('#key-label').value})})).json();
+  $('#key-new').innerHTML = `<div class="card" style="background:var(--code)">
+    <div class="hint">新 Key（只显示一次，请立即保存）</div>
+    <pre>${esc(r.key)}</pre></div>`;
+  refresh();
+}
+async function revKey(k){
+  if(!confirm('确认吊销该 Key？')) return;
+  await fetch('/api/apikeys/revoke', {method:'POST',
+    headers:{'Content-Type':'application/json'}, body:JSON.stringify({key:k})});
+  refresh();
+}
+
+async function loadHero(){
+  try{
+    const r = await (await fetch('/api/sms/balance')).json();
+    $('#herobal').textContent = r.ok ? ('hero: $' + r.balance.toFixed(3)) : 'hero: —';
+    $('#herobal').className = 'badge ' + (r.ok ? 'ok' : 'err');
+  }catch(e){ $('#herobal').textContent='hero: —'; }
+}
+
+
+// ==================== 打包 ====================
+
+refresh();
+loadSmsCfg();
+loadHero();
+setInterval(refresh, 5000);
+setInterval(loadHero, 60000);
+</script>
+</body>
+</html>
